@@ -1,3 +1,3 @@
-import { Add } from './Add.js';
+import { mCashZkApp } from './mCash.js';
 
-export { Add };
+export { mCashZkApp };
