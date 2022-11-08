@@ -1,14 +1,14 @@
-import { mCashZkApp } from './mCash.js';
-import { isReady, shutdown, Mina, PrivateKey, AccountUpdate } from 'snarkyjs';
+import { mCashZkApp, deploy, createLocalBlockchain } from './mCash.js';
+import { isReady, shutdown, PrivateKey } from 'snarkyjs';
 import { MerkleTree } from './MerkleTree.js';
 
 (async function main() {
   await isReady;
   console.log('SnarkyJS loaded');
-  const Local = Mina.LocalBlockchain();
-  Mina.setActiveInstance(Local);
+  const [deployerAccount, payerAccount] = createLocalBlockchain();
+  console.log('Deployer account', deployerAccount.toString());
+  console.log('Payer account', payerAccount.toString());
 
-  const deployerAccount = Local.testAccounts[0].privateKey;
   // ----------------------------------------------------
   // Create a public/private key pair. The public key is our address and where we will deploy to
   const zkAppPrivateKey = PrivateKey.random();
@@ -21,17 +21,22 @@ import { MerkleTree } from './MerkleTree.js';
   const nullifierRoot = nullifierTree.getRoot();
   const commitmentRoot = commitmentTree.getRoot();
 
-  const deployTxn = await Mina.transaction(deployerAccount, () => {
-    AccountUpdate.fundNewAccount(deployerAccount);
-    contract.deploy({ zkappKey: zkAppPrivateKey });
-    contract.init(nullifierRoot, commitmentRoot);
-  });
-  await deployTxn.send().wait();
+  await deploy(
+    contract,
+    zkAppPrivateKey,
+    deployerAccount,
+    nullifierRoot,
+    commitmentRoot
+  );
 
   const stateNullifierRoot = contract.nullifierRoot.get();
   const stateCommitmentRoot = contract.commitmentRoot.get();
   console.log('State nullifier root', stateNullifierRoot.toString());
   console.log('State commitment root', stateCommitmentRoot.toString());
+
+  // ----------------------------------------------------
+  // Deposit
+
   // Get the initial state of our zkApp account after deployment
   // ----------------------------------------------------
   console.log('Shutting down');
