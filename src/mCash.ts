@@ -70,11 +70,9 @@ export class mCashZkApp extends SmartContract {
 
   deploy(args: DeployArgs) {
     super.deploy(args);
-    // Not working!!!!!!!!!
     this.setPermissions({
       ...Permissions.default(),
-      editState: Permissions.proofOrSignature(),
-      editSequenceState: Permissions.proofOrSignature(),
+      editState: Permissions.none(),
     });
   }
 
@@ -83,7 +81,7 @@ export class mCashZkApp extends SmartContract {
     this.commitmentRoot.set(_commitmentRoot);
     this.lastCommitment.set(Field(1));
     this.fee.set(Field(1));
-    this.balance.addInPlace(UInt64.fromNumber(initialBalance));
+    // this.balance.addInPlace(UInt64.fromNumber(initialBalance));
   }
 
   @method deposit(
@@ -95,7 +93,7 @@ export class mCashZkApp extends SmartContract {
     // let fee = this.fee.get();
     // this.fee.assertEquals(fee);
 
-    this.balance.addInPlace(this.amount); // works?
+    // this.balance.addInPlace(this.amount); // works?
 
     // commitment = hash(nullifier, secret)
     const commitment = Poseidon.hash([nullifier, secret]);
