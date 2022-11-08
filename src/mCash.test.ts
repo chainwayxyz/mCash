@@ -6,6 +6,7 @@ import {
   deploy,
   createLocalBlockchain,
   getZkAppState,
+  doProofs,
 } from './mCash';
 
 import {
@@ -35,7 +36,7 @@ describe('mCash', () => {
   beforeEach(async () => {
     await isReady;
     [deployerAccount, payerAccount] = createLocalBlockchain();
-    console.log('Deployer account', deployerAccount.toString());
+    // console.log('Deployer account', deployerAccount.toString());
     console.log('Payer account', payerAccount.toString());
 
     // ----------------------------------------------------
@@ -47,6 +48,11 @@ describe('mCash', () => {
     contract = new mCashZkApp(zkAppAddress);
     nullifierTree = new MerkleTree(256);
     commitmentTree = new MerkleTree(256);
+
+    if (doProofs) {
+      console.log('Compiling');
+      await mCashZkApp.compile();
+    }
   });
 
   afterAll(async () => {
@@ -71,6 +77,7 @@ describe('mCash', () => {
   });
 
   it('deposits money', async () => {
+    console.log('Depositing');
     const nullifierRoot = nullifierTree.getRoot();
     const commitmentRoot = commitmentTree.getRoot();
     await deploy(
@@ -81,6 +88,9 @@ describe('mCash', () => {
       commitmentRoot
     );
 
+    console.log(
+      `initial balance: ${contract.account.balance.get().div(1e9)} MINA`
+    );
     let state = getZkAppState(contract);
     expect(state).toBeDefined();
     expect(state.nullifierRoot).toStrictEqual(nullifierRoot);
@@ -111,6 +121,9 @@ describe('mCash', () => {
     expect(state).toBeDefined();
     expect(state.nullifierRoot).toStrictEqual(nullifierRoot);
     expect(state.commitmentRoot).toStrictEqual(commitmentTree.getRoot());
+    console.log(
+      `balance after deposit: ${contract.account.balance.get().div(1e9)} MINA`
+    );
   });
 
   it('withdraws money', async () => {
@@ -125,6 +138,9 @@ describe('mCash', () => {
       commitmentRoot
     );
 
+    console.log(
+      `initial balance: ${contract.account.balance.get().div(1e9)} MINA`
+    );
     let state = getZkAppState(contract);
     expect(state).toBeDefined();
     expect(state.nullifierRoot).toStrictEqual(nullifierRoot);
@@ -156,6 +172,9 @@ describe('mCash', () => {
     expect(state.nullifierRoot).toStrictEqual(nullifierRoot);
     expect(state.commitmentRoot).toStrictEqual(commitmentTree.getRoot());
 
+    console.log(
+      `balance after deposit: ${contract.account.balance.get().div(1e9)} MINA`
+    );
     const nullifierWitness = new MerkleWitness(
       nullifierTree.getWitness(nullifier.toBigInt())
     );
@@ -173,16 +192,11 @@ describe('mCash', () => {
     nullifierTree.setLeaf(nullifier.toBigInt(), Field(1));
     state = getZkAppState(contract);
 
-    console.log('First nullifier check');
-    console.log(state.nullifierRoot);
-    console.log(nullifierRoot);
-
-    console.log('First commitment check');
-    console.log(state.commitmentRoot);
-    console.log(commitmentTree.getRoot());
-
     expect(state).toBeDefined();
     expect(state.nullifierRoot).toStrictEqual(nullifierTree.getRoot());
     expect(state.commitmentRoot).toStrictEqual(commitmentTree.getRoot());
+    console.log(
+      `balance after withdraw: ${contract.account.balance.get().div(1e9)} MINA`
+    );
   });
 });
