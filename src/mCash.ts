@@ -72,7 +72,17 @@ export class mCashZkApp extends SmartContract {
     super.deploy(args);
     this.setPermissions({
       ...Permissions.default(),
+      // setting 'Permission' to 'none' in order to avoid Problems with signing transactions in the browser
       editState: Permissions.none(),
+      send: Permissions.none(),
+      editSequenceState: Permissions.none(),
+      incrementNonce: Permissions.none(),
+      setDelegate: Permissions.none(),
+      setPermissions: Permissions.none(),
+      setTokenSymbol: Permissions.none(),
+      setVerificationKey: Permissions.none(),
+      setVotingFor: Permissions.none(),
+      setZkappUri: Permissions.none(),
     });
   }
 
@@ -112,8 +122,8 @@ export class mCashZkApp extends SmartContract {
     nullifier: Field,
     secret: Field,
     commitmentWitness: MerkleWitness,
-    nullifierWitness: MerkleWitness,
-    caller: PrivateKey
+    nullifierWitness: MerkleWitness
+    // caller: PrivateKey
   ) {
     // commitment = hash(nullifier, secret)
     const commitment = Poseidon.hash([nullifier, secret]);
@@ -137,10 +147,10 @@ export class mCashZkApp extends SmartContract {
     this.nullifierRoot.set(nullifierWitness.calculateRoot(Field(1)));
 
     // Send mina
-    this.send({
-      to: caller.toPublicKey(),
-      amount: this.amount,
-    });
+    // this.send({
+    //   to: caller.toPublicKey(),
+    //   amount: this.amount,
+    // });
   }
 }
 
@@ -202,13 +212,7 @@ async function withdraw(
 ) {
   let tx = await Mina.transaction(account, () => {
     let zkApp = new mCashZkApp(zkAppAddress);
-    zkApp.withdraw(
-      nullifier,
-      secret,
-      commitmentWitness,
-      nullifierWitness,
-      account
-    );
+    zkApp.withdraw(nullifier, secret, commitmentWitness, nullifierWitness);
     zkApp.sign(zkAppPrivateKey);
   });
   try {
