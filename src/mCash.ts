@@ -149,60 +149,39 @@ function createLocalBlockchain(): [PrivateKey, PrivateKey] {
   let Local = Mina.LocalBlockchain();
   Mina.setActiveInstance(Local);
 
-  const account = Local.testAccounts[0].privateKey;
-  const payer_account = Local.testAccounts[1].privateKey;
-  return [account, payer_account];
+  const deployerAccount = Local.testAccounts[0].privateKey;
+  const payerAccount = Local.testAccounts[1].privateKey;
+  return [deployerAccount, payerAccount];
 }
-let transactionFee = 10_000_000;
-let initialBalance = 100_000_000;
 
 async function deploy(
   zkAppInstance: mCashZkApp,
   zkAppPrivateKey: PrivateKey,
   account: PrivateKey,
-  payer_account: PrivateKey,
   nullifierRoot: Field,
   commitmentRoot: Field
 ) {
   let tx = await Mina.transaction(account, () => {
-    AccountUpdate.fundNewAccount(account, { initialBalance });
+    AccountUpdate.fundNewAccount(account);
     zkAppInstance.deploy({ zkappKey: zkAppPrivateKey });
-
     zkAppInstance.init(nullifierRoot, commitmentRoot);
   });
   await tx.send().wait();
-
-  // console.log('Mina balance');
-  // console.log(await Mina.getBalance(account.toPublicKey()).toJSON());
-  // let response = await fetchAccount(account.toPublicKey());
-  // if (response.error) throw Error(response.error.statusText);
-  // let { nonce, balance } = response.account;
-  // console.log(`Using fee payer account with nonce ${nonce}, balance ${balance}`);
 }
 
 async function deposit(
   nullifier: Field,
   secret: Field,
   commitmentWitness: MerkleWitness,
-  account: PrivateKey,
+  deployerAccount: PrivateKey,
   zkAppAddress: PublicKey,
   zkAppPrivateKey: PrivateKey
 ) {
-  let tx = await Mina.transaction(
-    { feePayerKey: account, fee: transactionFee },
-    () => {
-      let zkApp = new mCashZkApp(zkAppAddress);
-      let accountUpdate = AccountUpdate.createSigned(account);
-      accountUpdate.send({
-        to: zkAppAddress,
-        amount: UInt64.fromNumber(100_000_000),
-      });
-
-      zkApp.deposit(nullifier, secret, commitmentWitness);
-      // zkApp.deposit(nullifier, secret, commitmentWitness, account);
-      zkApp.sign(zkAppPrivateKey);
-    }
-  );
+  let tx = await Mina.transaction(deployerAccount, () => {
+    let contract = new mCashZkApp(zkAppAddress);
+    contract.deposit(nullifier, secret, commitmentWitness);
+    contract.sign(zkAppPrivateKey);
+  });
   try {
     await tx.send().wait();
     return true;
@@ -240,10 +219,10 @@ async function withdraw(
   }
 }
 
-function getZkAppState(zkAppInstance: mCashZkApp) {
-  let nullifierRoot = zkAppInstance.nullifierRoot.get();
-  let commitmentRoot = zkAppInstance.commitmentRoot.get();
-  let lastCommitment = zkAppInstance.lastCommitment.get();
+function getZkAppState(contract: mCashZkApp) {
+  let nullifierRoot = contract.nullifierRoot.get();
+  let commitmentRoot = contract.commitmentRoot.get();
+  let lastCommitment = contract.lastCommitment.get();
   return {
     nullifierRoot,
     commitmentRoot,
