@@ -2,7 +2,6 @@ import {
   deposit,
   withdraw,
   mCashZkApp,
-  MerkleWitness,
   deploy,
   createLocalBlockchain,
   getZkAppState,
@@ -16,9 +15,9 @@ import {
   PrivateKey,
   PublicKey,
   Poseidon,
+  Experimental,
 } from 'snarkyjs';
-
-import { MerkleTree } from './MerkleTree';
+import { MerkleWitness256 } from 'experimental-zkapp-offchain-storage';
 
 /*
  INCOMPLETE
@@ -29,9 +28,9 @@ describe('mCash', () => {
     deployerAccount: PrivateKey,
     payerAccount: PrivateKey,
     zkAppAddress: PublicKey,
-    zkAppPrivateKey: PrivateKey,
-    nullifierTree: MerkleTree,
-    commitmentTree: MerkleTree;
+    zkAppPrivateKey: PrivateKey;
+  let nullifierTree = new Experimental.MerkleTree(256);
+  let commitmentTree = new Experimental.MerkleTree(256);
 
   beforeEach(async () => {
     await isReady;
@@ -46,8 +45,8 @@ describe('mCash', () => {
 
     // Create an instance of our Square smart contract and deploy it to zkAppAddress
     contract = new mCashZkApp(zkAppAddress);
-    nullifierTree = new MerkleTree(256);
-    commitmentTree = new MerkleTree(256);
+    nullifierTree = new Experimental.MerkleTree(256);
+    commitmentTree = new Experimental.MerkleTree(256);
 
     if (doProofs) {
       console.log('Compiling');
@@ -62,13 +61,7 @@ describe('mCash', () => {
   it('generates and deploys the `mCash` smart contract', async () => {
     const nullifierRoot = nullifierTree.getRoot();
     const commitmentRoot = commitmentTree.getRoot();
-    await deploy(
-      contract,
-      zkAppPrivateKey,
-      deployerAccount,
-      nullifierRoot,
-      commitmentRoot
-    );
+    await deploy(contract, zkAppPrivateKey, deployerAccount);
 
     let state = getZkAppState(contract);
     expect(state).toBeDefined();
@@ -80,13 +73,7 @@ describe('mCash', () => {
     console.log('Depositing');
     const nullifierRoot = nullifierTree.getRoot();
     const commitmentRoot = commitmentTree.getRoot();
-    await deploy(
-      contract,
-      zkAppPrivateKey,
-      deployerAccount,
-      nullifierRoot,
-      commitmentRoot
-    );
+    await deploy(contract, zkAppPrivateKey, deployerAccount);
 
     console.log(
       `initial balance: ${contract.account.balance.get().div(1e9)} MINA`
@@ -103,7 +90,7 @@ describe('mCash', () => {
 
     commitmentTree.setLeaf(lastCommitment, commitment);
 
-    const commitmentWitness = new MerkleWitness(
+    const commitmentWitness = new MerkleWitness256(
       commitmentTree.getWitness(lastCommitment)
     );
 
@@ -130,13 +117,7 @@ describe('mCash', () => {
     console.log('Withdraw test');
     const nullifierRoot = nullifierTree.getRoot();
     const commitmentRoot = commitmentTree.getRoot();
-    await deploy(
-      contract,
-      zkAppPrivateKey,
-      deployerAccount,
-      nullifierRoot,
-      commitmentRoot
-    );
+    await deploy(contract, zkAppPrivateKey, deployerAccount);
 
     console.log(
       `initial balance: ${contract.account.balance.get().div(1e9)} MINA`
@@ -153,7 +134,7 @@ describe('mCash', () => {
 
     commitmentTree.setLeaf(lastCommitment, commitment);
 
-    const commitmentWitness = new MerkleWitness(
+    const commitmentWitness = new MerkleWitness256(
       commitmentTree.getWitness(lastCommitment)
     );
 
@@ -175,7 +156,7 @@ describe('mCash', () => {
     console.log(
       `balance after deposit: ${contract.account.balance.get().div(1e9)} MINA`
     );
-    const nullifierWitness = new MerkleWitness(
+    const nullifierWitness = new MerkleWitness256(
       nullifierTree.getWitness(nullifier.toBigInt())
     );
 

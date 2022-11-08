@@ -45,5 +45,10 @@
   },
   "peerDependencies": {
     "snarkyjs": "^0.6.0"
+  },
+  "dependencies": {
+    "experimental-zkapp-offchain-storage": "^0.1.7",
+    "xmlhttprequest-ts": "^1.0.1",
+    "zkapp-offchain-storage": "^0.1.0"
   }
 }

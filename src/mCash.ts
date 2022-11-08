@@ -9,17 +9,19 @@ import {
   PrivateKey,
   Poseidon,
   UInt64,
-  Bool,
-  arrayProp,
-  CircuitValue,
-  Circuit,
   Mina,
   isReady,
   PublicKey,
   AccountUpdate,
+  Experimental,
   // fetchAccount
 } from 'snarkyjs';
-import { Witness } from './MerkleTree';
+
+import {
+  // OffChainStorage,
+  // Update,
+  MerkleWitness256,
+} from 'experimental-zkapp-offchain-storage';
 
 export {
   deploy,
@@ -33,43 +35,10 @@ export {
 await isReady;
 const doProofs = false;
 
-export class MerkleWitness extends CircuitValue {
-  @arrayProp(Field, 255) path: Field[];
-  @arrayProp(Bool, 255) isLeft: Bool[];
-
-  constructor(witness: Witness) {
-    super();
-
-    this.path = witness.map((x) => x.sibling);
-    this.isLeft = witness.map((x) => Bool(x.isLeft));
-  }
-
-  calculateRoot(leaf: Field): Field {
-    let hash = leaf;
-
-    for (let i = 1; i < 256; ++i) {
-      const left = Circuit.if(this.isLeft[i - 1], hash, this.path[i - 1]);
-      const right = Circuit.if(this.isLeft[i - 1], this.path[i - 1], hash);
-      hash = Poseidon.hash([left, right]);
-    }
-
-    return hash;
-  }
-
-  calculateIndex(): Field {
-    let powerOfTwo = Field(1);
-    let index = Field(0);
-
-    for (let i = 1; i < 256; ++i) {
-      index = Circuit.if(this.isLeft[i - 1], index, index.add(powerOfTwo));
-      powerOfTwo = powerOfTwo.mul(2);
-    }
-
-    return index;
-  }
-}
-
 export class mCashZkApp extends SmartContract {
+  // @state(PublicKey) storageServerPublicKey = State<PublicKey>();
+  // @state(Field) storageNumber = State<Field>();
+
   @state(Field) nullifierRoot = State<Field>();
   @state(Field) commitmentRoot = State<Field>();
   @state(Field) lastCommitment = State<Field>();
@@ -94,18 +63,20 @@ export class mCashZkApp extends SmartContract {
     });
   }
 
-  @method init(_nullifierRoot: Field, _commitmentRoot: Field) {
-    this.nullifierRoot.set(_nullifierRoot);
-    this.commitmentRoot.set(_commitmentRoot);
+  @method init() {
+    // this.storageServerPublicKey.set(storageServerPublicKey);
+    // this.storageNumber.set(Field.zero);
+
+    const emptyTreeRoot = new Experimental.MerkleTree(256).getRoot();
+    this.nullifierRoot.set(emptyTreeRoot);
+    this.commitmentRoot.set(emptyTreeRoot);
     this.lastCommitment.set(Field(1));
-    this.fee.set(Field(1));
-    // this.balance.addInPlace(UInt64.fromNumber(initialBalance));
   }
 
   @method deposit(
     nullifier: Field,
     secret: Field,
-    commitmentWitness: MerkleWitness,
+    commitmentWitness: MerkleWitness256,
     caller: PrivateKey
   ) {
     // let fee = this.fee.get();
@@ -132,8 +103,8 @@ export class mCashZkApp extends SmartContract {
   @method withdraw(
     nullifier: Field,
     secret: Field,
-    commitmentWitness: MerkleWitness,
-    nullifierWitness: MerkleWitness,
+    commitmentWitness: MerkleWitness256,
+    nullifierWitness: MerkleWitness256,
     caller: PrivateKey
   ) {
     // commitment = hash(nullifier, secret)
@@ -178,13 +149,11 @@ function createLocalBlockchain(): [PrivateKey, PrivateKey] {
 async function deploy(
   zkAppInstance: mCashZkApp,
   zkAppPrivateKey: PrivateKey,
-  account: PrivateKey,
-  nullifierRoot: Field,
-  commitmentRoot: Field
+  account: PrivateKey
 ) {
   let tx = await Mina.transaction(account, () => {
     AccountUpdate.fundNewAccount(account);
-    zkAppInstance.init(nullifierRoot, commitmentRoot);
+    zkAppInstance.init();
     zkAppInstance.deploy({ zkappKey: zkAppPrivateKey });
   });
   await tx.send().wait();
@@ -200,7 +169,7 @@ async function deploy(
 async function deposit(
   nullifier: Field,
   secret: Field,
-  commitmentWitness: MerkleWitness,
+  commitmentWitness: MerkleWitness256,
   deployerAccount: PrivateKey,
   zkAppAddress: PublicKey,
   zkAppPrivateKey: PrivateKey
@@ -223,8 +192,8 @@ async function deposit(
 async function withdraw(
   nullifier: Field,
   secret: Field,
-  commitmentWitness: MerkleWitness,
-  nullifierWitness: MerkleWitness,
+  commitmentWitness: MerkleWitness256,
+  nullifierWitness: MerkleWitness256,
   account: PrivateKey,
   zkAppAddress: PublicKey,
   zkAppPrivateKey: PrivateKey
