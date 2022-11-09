@@ -90,14 +90,9 @@ describe('mCash', () => {
 
     commitmentTree.setLeaf(lastCommitment, commitment);
 
-    const commitmentWitness = new MerkleWitness256(
-      commitmentTree.getWitness(lastCommitment)
-    );
-
     await deposit(
       nullifier,
       secret,
-      commitmentWitness,
       deployerAccount,
       zkAppAddress,
       zkAppPrivateKey
@@ -141,7 +136,6 @@ describe('mCash', () => {
     await deposit(
       nullifier,
       secret,
-      commitmentWitness,
       deployerAccount,
       zkAppAddress,
       zkAppPrivateKey
