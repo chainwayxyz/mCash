@@ -36,10 +36,7 @@ async function main() {
   let zkappPrivateKey: PrivateKey;
 
   if (useLocal) {
-    const Local = Mina.LocalBlockchain();
-    Mina.setActiveInstance(Local);
-
-    feePayerKey = Local.testAccounts[0].privateKey;
+    feePayerKey = createLocalBlockchain();
     zkappPrivateKey = PrivateKey.random();
   } else {
     // Gives error since testnet is not implemented
@@ -112,6 +109,14 @@ async function main() {
   }
 
   await shutdown();
+}
+
+function createLocalBlockchain(): PrivateKey {
+  let Local = Mina.LocalBlockchain();
+  Mina.setActiveInstance(Local);
+
+  const deployerAccount = Local.testAccounts[0].privateKey;
+  return deployerAccount;
 }
 
 async function deploy(
@@ -216,6 +221,14 @@ async function deposit(
     return false;
   }
 }
+
+export {
+  deploy,
+  deposit,
+  createLocalBlockchain,
+  doProofs,
+  storageServerAddress,
+};
 
 // function createLocalBlockchain(): [PrivateKey, PrivateKey] {
 //   let Local = Mina.LocalBlockchain();
