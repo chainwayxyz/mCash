@@ -3,7 +3,7 @@ import Head from 'next/head';
 import Image from 'next/image';
 import styles from '../styles/Home.module.css';
 import { useEffect, useState } from 'react';
-import type { Add } from '../../contracts/src/';
+// import type { mCashZkApp } from '../../contracts/src/mCash';
 import {
   Mina,
   isReady,
@@ -15,7 +15,7 @@ export default function Home() {
   useEffect(() => {
     (async () => {
       await isReady;
-      const { Add } = await import('../../contracts/build/src/');
+      const { mCashZkApp } = await import('../../contracts/build/src/mCash');
 
       // Update this to use the address (public key) for your zkApp account
       // To try it out, you can try this address for an example "Add" smart contract that we've deployed to 
