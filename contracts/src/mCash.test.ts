@@ -32,11 +32,13 @@ describe('mCash', () => {
     payerAccount: PrivateKey,
     zkAppAddress: PublicKey,
     zkAppPrivateKey: PrivateKey;
-  let nullifierTree = new MerkleTree(256);
-  let commitmentTree = new MerkleTree(256);
+  let nullifierTree: MerkleTree;
+  let commitmentTree: MerkleTree;
 
   beforeEach(async () => {
     await isReady;
+    nullifierTree = new MerkleTree(256);
+    commitmentTree = new MerkleTree(256);
     [deployerAccount, payerAccount] = createLocalBlockchain();
     // console.log('Deployer account', deployerAccount.toString());
     console.log('Payer account', payerAccount.toString());

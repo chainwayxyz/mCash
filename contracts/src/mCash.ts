@@ -10,7 +10,6 @@ import {
   Poseidon,
   UInt64,
   Mina,
-  isReady,
   PublicKey,
   AccountUpdate,
   MerkleWitness,
@@ -36,7 +35,7 @@ export {
   doProofs,
 };
 
-await isReady;
+// await isReady;
 const doProofs = false;
 
 export class mCashZkApp extends SmartContract {

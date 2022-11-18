@@ -3,8 +3,11 @@ import {
     PublicKey,
     PrivateKey,
     Field,
+    MerkleWitness
   } from 'snarkyjs'
   
+  
+class MerkleWitness256 extends MerkleWitness(256) {}
   import type { ZkappWorkerRequest, ZkappWorkerReponse, WorkerFunctions } from './zkappWorker';
   
   export default class ZkappWorkerClient {
@@ -35,16 +38,58 @@ import {
     initZkappInstance(publicKey: PublicKey) {
       return this._call('initZkappInstance', { publicKey58: publicKey.toBase58() });
     }
-  
-    async getNum(): Promise<Field> {
-      const result = await this._call('getNum', {});
+
+    async getCommitmentRoot() {
+      const result = await this._call('getCommitmentRoot', {});
       return Field.fromJSON(JSON.parse(result as string));
     }
-  
-    createUpdateTransaction(feePayerPrivateKey: PrivateKey, transactionFee: number) {
-      const feePayerPrivateKey58 = feePayerPrivateKey.toBase58();
-      return this._call('createUpdateTransaction', { feePayerPrivateKey58, transactionFee });
+
+    async getLastCommitment() {
+      const result = await this._call('getLastCommitment', {});
+      return Field.fromJSON(JSON.parse(result as string));
     }
+
+    createDepositTransaction(
+      nullifier: Field,
+      secret: Field,
+      commitmentWitness: MerkleWitness256,
+      caller: PrivateKey
+    ) {
+      const callerBase58 = caller.toBase58();
+      return this._call('createDepositTransaction', { 
+        nullifier: nullifier.toJSON(),
+        secret: secret.toJSON(),
+        commitmentWitness: commitmentWitness,
+        callerBase58,
+       });
+    }
+
+    createWithdrawTransaction(
+      nullifier: Field,
+      secret: Field,
+      caller: PrivateKey,
+      commitmentWitness: MerkleWitness256,
+      nullifierWitness: MerkleWitness256,
+    ) {
+      const callerBase58 = caller.toBase58();
+      return this._call('createWithdrawTransaction', { 
+        nullifier: nullifier.toJSON(),
+        secret: secret.toJSON(),
+        commitmentWitness: commitmentWitness,
+        nullifierWitness: nullifierWitness,
+        callerBase58,
+       });
+    }
+  
+    // async getNum(): Promise<Field> {
+    //   const result = await this._call('getNum', {});
+    //   return Field.fromJSON(JSON.parse(result as string));
+    // }
+  
+    // createUpdateTransaction(feePayerPrivateKey: PrivateKey, transactionFee: number) {
+    //   const feePayerPrivateKey58 = feePayerPrivateKey.toBase58();
+    //   return this._call('createUpdateTransaction', { feePayerPrivateKey58, transactionFee });
+    // }
   
     proveUpdateTransaction() {
       return this._call('proveUpdateTransaction', {});

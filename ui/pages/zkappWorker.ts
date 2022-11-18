@@ -5,8 +5,10 @@ import {
     PrivateKey,
     Field,
     fetchAccount,
+    MerkleWitness
   } from 'snarkyjs'
-  
+class MerkleWitness256 extends MerkleWitness(256) {}
+
   type Transaction = Awaited<ReturnType<typeof Mina.transaction>>;
   
   // ---------------------------------------------------------------------------------------
@@ -46,20 +48,69 @@ import {
       const publicKey = PublicKey.fromBase58(args.publicKey58);
       state.zkapp = new state.mCashZkApp!(publicKey);
     },
-    getNum: async (args: {}) => {
-      const currentNum = await state.zkapp!.num.get();
-      return JSON.stringify(currentNum.toJSON());
+    // getNum: async (args: {}) => {
+    //   const currentNum = await state.zkapp!.num.get();
+    //   return JSON.stringify(currentNum.toJSON());
+    // },
+    // createUpdateTransaction: async (args: { feePayerPrivateKey58: string, transactionFee: number }) => {
+    //   const feePayerKey = PrivateKey.fromBase58(args.feePayerPrivateKey58);
+    //   const transaction = await Mina.transaction(
+    //     { feePayerKey, fee: args.transactionFee },
+    //     () => {
+    //       state.zkapp!.update();
+    //     }
+    //   );
+    //   state.transaction = transaction;
+    // },
+    getCommitmentRoot: async (args: {}) => {
+      const commitmentRoot = await state.zkapp!.commitmentRoot.get();
+      return JSON.stringify(commitmentRoot.toJSON());
     },
-    createUpdateTransaction: async (args: { feePayerPrivateKey58: string, transactionFee: number }) => {
-      const feePayerKey = PrivateKey.fromBase58(args.feePayerPrivateKey58);
+    getLastCommitment: async (args: {}) => {
+      const lastCommitment = await state.zkapp!.lastCommitment.get();
+      return JSON.stringify(lastCommitment.toJSON());
+    },
+    createDepositTransaction: async(
+      args: {
+        nullifier: string,
+        secret: string,
+        commitmentWitness: MerkleWitness256,
+        caller: string,
+      }
+    ) => {
+      const nullifier = Field.fromJSON(args.nullifier);
+      const secret = Field.fromJSON(args.secret);
+      const commitmentWitness = args.commitmentWitness;
+      const caller = PrivateKey.fromBase58(args.caller);
       const transaction = await Mina.transaction(
-        { feePayerKey, fee: args.transactionFee },
+        caller,
         () => {
-          state.zkapp!.update();
+          state.zkapp!.deposit(nullifier, secret, commitmentWitness, caller);
         }
       );
       state.transaction = transaction;
     },
+    createWithdrawTransaction: async(
+      args: {
+        nullifier: string,
+        secret: string,
+        commitmentWitness: MerkleWitness256,
+        nullifierWitness: MerkleWitness256,
+        caller: string,
+      }) => {
+      const nullifier = Field.fromJSON(args.nullifier);
+      const secret = Field.fromJSON(args.secret);
+      const commitmentWitness = args.commitmentWitness;
+      const nullifierWitness = args.nullifierWitness;
+      const caller = PrivateKey.fromBase58(args.caller);
+      const transaction = await Mina.transaction(
+        caller,
+        () => {
+          state.zkapp!.withdraw(nullifier, secret, commitmentWitness, nullifierWitness, caller);
+        }
+      );
+      state.transaction = transaction;
+    },  
     proveUpdateTransaction: async (args: {}) => {
       await state.transaction!.prove();
     },
