@@ -108,14 +108,30 @@ class MerkleWitness256 extends MerkleWitness(256) {}
       args: {
         nullifier: string,
         secret: string,
-        commitmentWitness: MerkleWitness256,
-        nullifierWitness: MerkleWitness256,
+        commitmentWitness: any,
+        nullifierWitness: any,
         caller: string,
       }) => {
       const nullifier = Field.fromJSON(args.nullifier);
       const secret = Field.fromJSON(args.secret);
-      const commitmentWitness = args.commitmentWitness;
-      const nullifierWitness = args.nullifierWitness;
+      let commitmentWitness: any = []
+      args.commitmentWitness.isLeft.forEach((isLeft: any, index: any) => {
+        commitmentWitness.push({
+          isLeft: isLeft,
+          sibling: Field.fromJSON(args.commitmentWitness.path[index])
+        })
+      })
+      const commitmentWitness256 = new MerkleWitness256(commitmentWitness);
+      let nullifierWitness: any = []
+      args.nullifierWitness.isLeft.forEach((isLeft: any, index: any) => {
+        nullifierWitness.push({
+          isLeft: isLeft,
+          sibling: Field.fromJSON(args.nullifierWitness.path[index])
+        })
+      })
+      const nullifierWitness256 = new MerkleWitness256(nullifierWitness);
+      console.log('caller', args.caller)
+
       const caller = PrivateKey.fromBase58(args.caller);
       const transaction = await Mina.transaction(
         {
@@ -123,7 +139,7 @@ class MerkleWitness256 extends MerkleWitness(256) {}
           fee: 1e8
         },
         () => {
-          state.zkapp!.withdraw(nullifier, secret, commitmentWitness, nullifierWitness, caller);
+          state.zkapp!.withdraw(nullifier, secret, commitmentWitness256, nullifierWitness256, caller);
         }
       );
       state.transaction = transaction;

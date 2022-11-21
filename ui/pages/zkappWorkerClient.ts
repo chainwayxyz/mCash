@@ -70,13 +70,13 @@ class MerkleWitness256 extends MerkleWitness(256) {}
       commitmentWitness: MerkleWitness256,
       nullifierWitness: MerkleWitness256,
     ) {
-      const callerBase58 = caller.toBase58();
+      console.log('caller', caller);
       return this._call('createWithdrawTransaction', { 
         nullifier: nullifier.toJSON(),
         secret: secret.toJSON(),
-        commitmentWitness: commitmentWitness,
-        nullifierWitness: nullifierWitness,
-        callerBase58,
+        commitmentWitness: commitmentWitness.toJSON(),
+        nullifierWitness: nullifierWitness.toJSON(),
+        caller: caller.toBase58(),
        });
     }
   

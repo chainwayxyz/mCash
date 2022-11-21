@@ -23,13 +23,17 @@ export default function App({ Component, pageProps }: AppProps) {
     zkappWorkerClient: null as null | ZkappWorkerClient,
     hasBeenSetup: false,
     accountExists: false,
-    currentNum: null as null | Field,
     privateKey: null as null | PrivateKey,
     publicKey: null as null | PublicKey,
     zkappPublicKey: null as null | PublicKey,
     creatingTransaction: false,
     nullifier: null as any,
     secret: null as any,
+    depositNullifier: null as any,
+    depositSecret: null as any,
+    root: null as any,
+    txStatus: null as any,
+    txHash: null as any,
   });
 
   useEffect(() => {
@@ -69,8 +73,10 @@ export default function App({ Component, pageProps }: AppProps) {
 
     console.log('getting zkApp state...');
     await zkappWorkerClient.fetchAccount({ publicKey: zkappPublicKey })
-    const currentNum = await zkappWorkerClient.getCommitmentRoot();
-    console.log('current state:', currentNum.toString());
+    const root = '0x'+(await zkappWorkerClient.getCommitmentRoot()).toBigInt().toString(16);
+    // convert Field to Hex
+    
+    console.log('current state:', root.toString());
     setState({
       ...state,
       zkappWorkerClient,
@@ -79,7 +85,7 @@ export default function App({ Component, pageProps }: AppProps) {
       privateKey,
       zkappPublicKey,
       accountExists,
-      currentNum
+      root
     });
   }
   })();
@@ -105,14 +111,14 @@ export default function App({ Component, pageProps }: AppProps) {
   // add on send transaction func
 
   const deposit = async () => {
-    setState({ ...state, creatingTransaction: true });
+    setState({ ...state, txStatus: 'Generating random nullifier and secret', creatingTransaction: true });
     console.log('sending deposit transaction...');
 
     await state.zkappWorkerClient!.fetchAccount({ publicKey: state.publicKey! });
 
     // create two random numbers
-    const num1 = Field.random();
-    const num2 = Field.random();
+    const nullifier = Field.random();
+    const secret = Field.random();
 
     // get merkle tree from api
     // const res: any = await fetch('https://zkapp.berkeley.edu/api/merkle-tree');
@@ -126,7 +132,7 @@ export default function App({ Component, pageProps }: AppProps) {
     merkleTree.fill(leaves);
 
     // create a commitment
-    const commitment = Poseidon.hash([num1, num2]);
+    const commitment = Poseidon.hash([nullifier, secret]);
     const lastCommitment = (await state.zkappWorkerClient!.getLastCommitment()).toBigInt();
 
     merkleTree.setLeaf(lastCommitment, commitment);
@@ -135,24 +141,40 @@ export default function App({ Component, pageProps }: AppProps) {
       merkleTree.getWitness(lastCommitment)
     )
 
+    setState({ ...state, txStatus: 'Creating deposit transaction' })
+
     await state.zkappWorkerClient!.createDepositTransaction(
-      num1,
-      num2,
+      nullifier,
+      secret,
       witness,
       state.privateKey!
     )
 
+    setState({ ...state, txStatus: 'Proving deposit transaction' })
+
     await state.zkappWorkerClient!.proveUpdateTransaction();
+
+    setState({ ...state, txStatus: 'Sending deposit transaction' })
 
     const txHash = await state.zkappWorkerClient!.sendUpdateTransaction();
 
-    console.log('txHash', txHash);
+    const root = '0x'+(await state.zkappWorkerClient!.getCommitmentRoot()).toBigInt().toString(16);
 
-    setState({ ...state, creatingTransaction: false });
+    setState({ ...state, root, txStatus: `Deposit transaction hash ${txHash}`, txHash, creatingTransaction: false, depositNullifier: nullifier, depositSecret: secret });
   }
 
-  const withdraw = async (nullifier: Field, secret: Field) => {
-    setState({ ...state, creatingTransaction: true });
+  const withdraw = async (nullifier: any, secret: any) => {
+    // log nullifier and secret
+    console.log('nullifier', nullifier);
+    console.log('secret', secret);
+
+    // cast to field
+    const nullifierField = new Field(nullifier);
+    const secretField = new Field(secret);
+
+    setState({ ...state, creatingTransaction: true, txStatus: 'Generating trees for withdrawal' });
+
+    await state.zkappWorkerClient!.fetchAccount({ publicKey: state.publicKey! });
 
     // create a merkle tree
     const commitmentTree = new MerkleTree(256);
@@ -177,8 +199,8 @@ export default function App({ Component, pageProps }: AppProps) {
     commitmentTree.fill(leaves);
     nullifierTree.fill(nullifierLeaves);
 
-    // find the commitment
-    const commitment = Poseidon.hash([nullifier, secret]);
+    // poseidon hash the nullifier and secret
+    const commitment = Poseidon.hash([nullifierField, secretField]);
     
     // find its index in leaves from res
     const commitmentIndex = leaves.findIndex((leaf: any) => leaf === commitment.toString());
@@ -189,28 +211,36 @@ export default function App({ Component, pageProps }: AppProps) {
     )
 
     const nullifierWitness = new MerkleWitness256(
-      nullifierTree.getWitness(nullifier.toBigInt())
+      nullifierTree.getWitness(nullifierField.toBigInt())
     )
+
+    setState({ ...state, txStatus: 'Creating withdrawal transaction' });
+
+    console.log('Private key', state.privateKey);
 
     // create a transaction
     await state.zkappWorkerClient!.createWithdrawTransaction(
-      nullifier,
-      secret,
+      nullifierField,
+      secretField,
       state.privateKey!,
       witness,
       nullifierWitness,
     )
+
+    setState({ ...state, txStatus: 'Proving withdrawal transaction' });
 
     // prove the transaction
     await state.zkappWorkerClient!.proveUpdateTransaction();
 
     // send the transaction
 
+    setState({ ...state, txStatus: 'Sending withdrawal transaction' });
+
     const txHash = await state.zkappWorkerClient!.sendUpdateTransaction();
 
     console.log('txHash', txHash);
 
-    setState({ ...state, creatingTransaction: false });
+    setState({ ...state, creatingTransaction: false, txStatus: `Withdrawal transaction hash ${txHash}`, txHash });
   }
 
   // add on refresh etc...
@@ -229,27 +259,51 @@ export default function App({ Component, pageProps }: AppProps) {
   
   let mainContent;
   if (true) {
-    mainContent = <div style={{display: 'flex', flexDirection: 'row', marginTop: '100px', justifyContent: 'space-between', width:'50vw'}}>
-      <div>
-        <h1>Deposit</h1>
-        <button onClick={deposit}>Deposit</button>
-      </div>
-      <div>
-        <h1>Withdraw</h1>
-        <div>
-          <label>Nullifier:</label>
-          <input type="text" value={state.nullifier} onChange={(e) => setState({ ...state, nullifier: e.target.value })} />
+    mainContent = 
+      <div style={{display: 'flex', flexDirection: 'column', marginTop: '100px', justifyContent: 'center', alignItems: 'center', width:'50vw'}}>
+        <div style={{display: 'flex', flexDirection: 'row', marginTop: '100px', justifyContent: 'space-between', width:'50vw'}}>
+          <div>
+            <h1>Deposit</h1>
+            <button onClick={deposit}>Deposit</button>
+            {state.depositNullifier && state.depositSecret && <div style={{width: '90%'}}>
+              <h3>Your Nullifier</h3>
+              <div>{state.depositNullifier.toString()}</div>
+              <h3>Your Secret</h3>
+              <div>{state.depositSecret.toString()}</div>
+            </div>}
+          </div>
+          <div>
+            <h1>Withdraw</h1>
+            <div>
+              <label>Nullifier:</label>
+              <input type="text" value={state.nullifier} onChange={(e) => setState({ ...state, nullifier: e.target.value })} />
+            </div>
+            <div>
+              <label>Secret:</label>
+              <input type="text" value={state.secret} onChange={(e) => setState({ ...state, secret: e.target.value })} />
+            </div>
+            <button onClick={() => withdraw(state.nullifier, state.secret)}>Withdraw</button>
+          </div>
+          {/* <button onClick={onSendTransaction} disabled={state.creatingTransaction}> Send Transaction </button>
+          <div> Current Number in zkApp: { state.currentNum!.toString() } </div>
+          <button onClick={onRefreshCurrentNum}> Get Latest State </button> */}
         </div>
+        {state.txStatus && <div style={{marginTop: 50}}>
+        <h1>Transaction Status</h1>
         <div>
-          <label>Secret:</label>
-          <input type="text" value={state.secret} onChange={(e) => setState({ ...state, secret: e.target })} />
-        </div>
-        <button onClick={() => withdraw(new Field(state.nullifier), new Field(state.secret))}>Withdraw</button>
+          {state.txHash && (
+            <a href={`https://berkeley.minaexplorer.com/transaction/${state.txHash}`} target="_blank" rel="noopener noreferrer">{state.txStatus}</a>
+          )}
+          {!state.txHash && (
+            <div>{state.txStatus}</div>
+          )}
+          </div>
+      </div>}
+        {state.root && <div style={{marginTop: 50}}>
+          <h1>Current Root</h1>
+          <div>{state.root.toString()}</div>
+        </div>}
       </div>
-      {/* <button onClick={onSendTransaction} disabled={state.creatingTransaction}> Send Transaction </button>
-      <div> Current Number in zkApp: { state.currentNum!.toString() } </div>
-      <button onClick={onRefreshCurrentNum}> Get Latest State </button> */}
-    </div>
   }
   
   return <div style={{width: '100vw', display: 'flex', flexDirection:'column', justifyContent: 'center', alignItems: 'center'}}>
