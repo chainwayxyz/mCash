@@ -39,8 +39,10 @@ export {
 const doProofs = false;
 
 export class mCashZkApp extends SmartContract {
-  // @state(PublicKey) storageServerPublicKey = State<PublicKey>();
-  // @state(Field) storageNumber = State<Field>();
+  events = {
+    deposit: Field,
+    withdraw: Field,
+  };
 
   @state(Field) nullifierRoot = State<Field>();
   @state(Field) commitmentRoot = State<Field>();
@@ -81,11 +83,6 @@ export class mCashZkApp extends SmartContract {
     commitmentWitness: CustomMerkleWitness,
     caller: PrivateKey
   ) {
-    // let fee = this.fee.get();
-    // this.fee.assertEquals(fee);
-
-    // this.balance.addInPlace(this.amount); // works?
-
     let payerAccountUpdate = AccountUpdate.createSigned(caller);
     payerAccountUpdate.send({ to: this.address, amount: UInt64.from(1e9) });
 
@@ -93,13 +90,23 @@ export class mCashZkApp extends SmartContract {
     const commitment = Poseidon.hash([nullifier, secret]);
     // verify that the commitment is in right index
     const commitmentIndex = commitmentWitness.calculateIndex();
-    this.lastCommitment.assertEquals(commitmentIndex);
+
+    const lastCommitmentInContract = this.lastCommitment.get();
+    this.lastCommitment.assertEquals(lastCommitmentInContract);
+    lastCommitmentInContract.assertEquals(commitmentIndex);
+
     // verify that the commitment is a valid commitment
-    this.commitmentRoot.assertEquals(commitmentWitness.calculateRoot(Field(0)));
+    const commitmentRootInContract = this.commitmentRoot.get();
+    this.commitmentRoot.assertEquals(commitmentRootInContract);
+    commitmentRootInContract.assertEquals(
+      commitmentWitness.calculateRoot(Field(0))
+    );
 
     const commitmentRootFromPath = commitmentWitness.calculateRoot(commitment);
     this.commitmentRoot.set(commitmentRootFromPath);
     this.lastCommitment.set(commitmentIndex.add(1));
+
+    this.emitEvent('deposit', commitment);
   }
 
   @method withdraw(
@@ -112,21 +119,22 @@ export class mCashZkApp extends SmartContract {
     // commitment = hash(nullifier, secret)
     const commitment = Poseidon.hash([nullifier, secret]);
 
-    // verify that the commitment is a valid commitment
-    this.commitmentRoot.assertEquals(
+    const commitmentRootInContract = this.commitmentRoot.get();
+    this.commitmentRoot.assertEquals(commitmentRootInContract);
+    commitmentRootInContract.assertEquals(
       commitmentWitness.calculateRoot(commitment)
     );
+
     // verify that the nullifier is a valid nullifier
     // traverse nullifierPath
-
     const nullifierRootFromPath = nullifierWitness.calculateRoot(Field(0));
     const nullifierFromPath = nullifierWitness.calculateIndex();
 
     // verify nullifierPath
-
-    this.nullifierRoot.assertEquals(nullifierRootFromPath);
+    const nullifierRootInContract = this.nullifierRoot.get();
+    this.nullifierRoot.assertEquals(nullifierRootInContract);
+    nullifierRootInContract.assertEquals(nullifierRootFromPath);
     nullifier.assertEquals(nullifierFromPath);
-    // Now we can withdraw the MONEYYY
 
     this.nullifierRoot.set(nullifierWitness.calculateRoot(Field(1)));
 
@@ -135,6 +143,8 @@ export class mCashZkApp extends SmartContract {
       to: caller.toPublicKey(),
       amount: UInt64.from(1e9),
     });
+
+    this.emitEvent('withdraw', nullifier);
   }
 }
 
