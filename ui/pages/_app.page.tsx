@@ -28,6 +28,8 @@ export default function App({ Component, pageProps }: AppProps) {
     publicKey: null as null | PublicKey,
     zkappPublicKey: null as null | PublicKey,
     creatingTransaction: false,
+    nullifier: null as any,
+    secret: null as any,
   });
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export default function App({ Component, pageProps }: AppProps) {
     await zkappWorkerClient.compileContract();
     console.log('zkApp compiled');
 
-    const zkappPublicKey = PublicKey.fromBase58('B62qrBBEARoG78KLD1bmYZeEirUfpNXoMPYQboTwqmGLtfqAGLXdWpU');
+    const zkappPublicKey = PublicKey.fromBase58('B62qjtqRAFiUJCTTyQWy88uMh86L4Ynm4csm43vKA237YBNBvtmt8Hf');
 
     await zkappWorkerClient.initZkappInstance(zkappPublicKey);
 
@@ -113,10 +115,15 @@ export default function App({ Component, pageProps }: AppProps) {
     const num2 = Field.random();
 
     // get merkle tree from api
-    const res: any = await fetch('https://zkapp.berkeley.edu/api/merkle-tree');
+    // const res: any = await fetch('https://zkapp.berkeley.edu/api/merkle-tree');
+    // const leaves = res.json().leaves.map((l: any) => new Field(l));
+
+    const leaves: any[] = [
+      // new Field('0x0000000000000000000000000000000000000000000000000000000000000000'),
+    ]
     
     const merkleTree = new MerkleTree(256);
-    merkleTree.fill(res.json().leaves);
+    merkleTree.fill(leaves);
 
     // create a commitment
     const commitment = Poseidon.hash([num1, num2]);
@@ -152,22 +159,33 @@ export default function App({ Component, pageProps }: AppProps) {
     const nullifierTree = new MerkleTree(256);
 
     // get merkle tree from api
-    const res: any = await fetch('https://zkapp.berkeley.edu/api/merkle-tree');
-    const res2: any = await fetch('https://zkapp.berkeley.edu/api/nullifier-tree');
+    // const res: any = await fetch('https://zkapp.berkeley.edu/api/merkle-tree');
+    // const res2: any = await fetch('https://zkapp.berkeley.edu/api/nullifier-tree');
+
+    // const leaves = res.json().leaves.map((l: any) => new Field(l));
+    // const nullifierLeaves = res2.json().leaves.map((l: any) => new Field(l));
+
+    const leaves: any[] = [
+      // new Field('0x0000000000000000000000000000000000000000000000000000000000000000'),
+    ]
+
+    const nullifierLeaves: any[] = [
+      // new Field('0x0000000000000000000000000000000000000000000000000000000000000000'),
+    ]
 
     // fill the merkle tree with the leaves
-    commitmentTree.fill(res.json().leaves);
-    nullifierTree.fill(res2.json().leaves);
+    commitmentTree.fill(leaves);
+    nullifierTree.fill(nullifierLeaves);
 
     // find the commitment
     const commitment = Poseidon.hash([nullifier, secret]);
     
     // find its index in leaves from res
-    const commitmentIndex = res.json().leaves.findIndex((leaf: any) => leaf === commitment.toString());
+    const commitmentIndex = leaves.findIndex((leaf: any) => leaf === commitment.toString());
 
     // get the witness
     const witness = new MerkleWitness256(
-      commitmentTree.getWitness(commitmentIndex)
+      commitmentTree.getWitness(BigInt(commitmentIndex))
     )
 
     const nullifierWitness = new MerkleWitness256(
@@ -210,15 +228,31 @@ export default function App({ Component, pageProps }: AppProps) {
   }
   
   let mainContent;
-  if (state.hasBeenSetup && state.accountExists) {
-    mainContent = <div>
+  if (true) {
+    mainContent = <div style={{display: 'flex', flexDirection: 'row', marginTop: '100px', justifyContent: 'space-between', width:'50vw'}}>
+      <div>
+        <h1>Deposit</h1>
+        <button onClick={deposit}>Deposit</button>
+      </div>
+      <div>
+        <h1>Withdraw</h1>
+        <div>
+          <label>Nullifier:</label>
+          <input type="text" value={state.nullifier} onChange={(e) => setState({ ...state, nullifier: e.target.value })} />
+        </div>
+        <div>
+          <label>Secret:</label>
+          <input type="text" value={state.secret} onChange={(e) => setState({ ...state, secret: e.target })} />
+        </div>
+        <button onClick={() => withdraw(new Field(state.nullifier), new Field(state.secret))}>Withdraw</button>
+      </div>
       {/* <button onClick={onSendTransaction} disabled={state.creatingTransaction}> Send Transaction </button>
       <div> Current Number in zkApp: { state.currentNum!.toString() } </div>
       <button onClick={onRefreshCurrentNum}> Get Latest State </button> */}
     </div>
   }
   
-  return <div>
+  return <div style={{width: '100vw', display: 'flex', flexDirection:'column', justifyContent: 'center', alignItems: 'center'}}>
     { setup }
     { accountDoesNotExist }
     { mainContent }
