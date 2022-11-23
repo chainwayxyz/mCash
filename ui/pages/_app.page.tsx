@@ -41,7 +41,7 @@ export default function App({ Component, pageProps }: AppProps) {
     
     console.log('Loading SnarkyJS...');
     await zkappWorkerClient.loadSnarkyJS();
-    console.log('done');
+    console.log('SnarkyJS loaded.');
     
     await zkappWorkerClient.setActiveInstanceToBerkeley();
     
@@ -52,7 +52,7 @@ export default function App({ Component, pageProps }: AppProps) {
     let privateKey = PrivateKey.fromBase58(localStorage.privateKey);
     let publicKey = privateKey.toPublicKey();
     
-    console.log('using key', publicKey.toBase58());
+    console.log('Using public key', publicKey.toBase58());
     
     console.log('checking if account exists...');
     const res = await zkappWorkerClient.fetchAccount({ publicKey: publicKey! });
@@ -71,9 +71,8 @@ export default function App({ Component, pageProps }: AppProps) {
     console.log('getting zkApp state...');
     await zkappWorkerClient.fetchAccount({ publicKey: zkappPublicKey })
     const root = '0x'+(await zkappWorkerClient.getCommitmentRoot()).toBigInt().toString(16);
-    // convert Field to Hex
     
-    console.log('current state:', root.toString());
+    console.log('current commitment root:', root.toString());
     setState({
       ...state,
       zkappWorkerClient,
@@ -121,10 +120,6 @@ export default function App({ Component, pageProps }: AppProps) {
     // get merkle tree from api
     const res: any = await fetch(process.env.NEXT_PUBLIC_BACKEND_URL!);
     const leaves = (await res.json()).commitments.map((l: any) => new Field(l));
-
-    // const leaves: any[] = [
-    //   // new Field('0x0000000000000000000000000000000000000000000000000000000000000000'),
-    // ]
     
     const merkleTree = new MerkleTree(256);
     merkleTree.fill([Field(0), ...leaves]);
@@ -138,11 +133,6 @@ export default function App({ Component, pageProps }: AppProps) {
     const witness = new MerkleWitness256(
       merkleTree.getWitness(lastCommitment)
     )
-
-    console.log('commitmentIndex', lastCommitment);
-    console.log(leaves)
-    console.log(commitment)
-    console.log(merkleTree)
 
     setState({ ...state, txStatus: 'Creating deposit transaction' })
 
@@ -182,10 +172,6 @@ export default function App({ Component, pageProps }: AppProps) {
 
   const withdraw = async (nullifier: any, secret: any) => {
     try {
-      // log nullifier and secret
-      console.log('nullifier', nullifier);
-      console.log('secret', secret);
-
       // cast to field
       const nullifierField = new Field(nullifier);
       const secretField = new Field(secret);
@@ -204,14 +190,6 @@ export default function App({ Component, pageProps }: AppProps) {
       const leaves = res.commitments.map((l: any) => new Field(l));
       const nullifierLeaves = res.nullifiers.map((l: any) => new Field(l));
 
-      // const leaves: any[] = [
-      //   // new Field('0x0000000000000000000000000000000000000000000000000000000000000000'),
-      // ]
-
-      // const nullifierLeaves: any[] = [
-      //   // new Field('0x0000000000000000000000000000000000000000000000000000000000000000'),
-      // ]
-
       // fill the merkle tree with the leaves
       commitmentTree.fill([Field(0), ...leaves]);
       nullifierLeaves.forEach((value: Field) => {
@@ -220,17 +198,9 @@ export default function App({ Component, pageProps }: AppProps) {
 
       // poseidon hash the nullifier and secret
       const commitment = Poseidon.hash([nullifierField, secretField]);
-
-      console.log('our commitment', commitment.toString());
-      console.log('leaves', leaves);
       
       // find its index in leaves from res
       const commitmentIndex = leaves.findIndex((leaf: Field) => leaf.toString() === commitment.toString());
-
-      console.log('our merkle root', commitmentTree.getRoot().toBigInt().toString(16));
-      console.log('their merkle root', (await state.zkappWorkerClient!.getCommitmentRoot()).toBigInt().toString(16));
-
-      console.log('our index', commitmentIndex);
 
       // get the witness
       const witness = new MerkleWitness256(
@@ -242,8 +212,6 @@ export default function App({ Component, pageProps }: AppProps) {
       )
 
       setState({ ...state, txStatus: 'Creating withdrawal transaction' });
-
-      console.log('Private key', state.privateKey);
 
       // create a transaction
       await state.zkappWorkerClient!.createWithdrawTransaction(
@@ -264,8 +232,6 @@ export default function App({ Component, pageProps }: AppProps) {
       setState({ ...state, txStatus: 'Sending withdrawal transaction' });
 
       const txHash = await state.zkappWorkerClient!.sendUpdateTransaction();
-
-      console.log('txHash', txHash);
 
       // post commitment to api
       await fetch(process.env.NEXT_PUBLIC_BACKEND_URL!, {

@@ -80,8 +80,6 @@ class MerkleWitness256 extends MerkleWitness(256) {}
     ) => {
       const nullifier = Field.fromJSON(args.nullifier);
       const secret = Field.fromJSON(args.secret);
-      // create merkle witness from json
-      console.log('Commitment Arg Witness', args.commitmentWitness);
       let witness: any = []
       args.commitmentWitness.isLeft.forEach((isLeft: any, index: any) => {
         witness.push({
@@ -90,9 +88,7 @@ class MerkleWitness256 extends MerkleWitness(256) {}
         })
       })
       const commitmentWitness = new MerkleWitness256(witness);
-      console.log('Commitment Witness', commitmentWitness);
       const caller = PrivateKey.fromBase58(args.caller);
-      console.log('PrivateKey', caller)
       const transaction = await Mina.transaction(
         {
           feePayerKey: caller,
@@ -130,7 +126,6 @@ class MerkleWitness256 extends MerkleWitness(256) {}
         })
       })
       const nullifierWitness256 = new MerkleWitness256(nullifierWitness);
-      console.log('caller', args.caller)
 
       const caller = PrivateKey.fromBase58(args.caller);
       const transaction = await Mina.transaction(
