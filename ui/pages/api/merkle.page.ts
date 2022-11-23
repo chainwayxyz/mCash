@@ -1,8 +1,11 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from 'next'
 import { JsonDB, Config } from 'node-json-db'
+import path from 'path';
 
-const db = new JsonDB(new Config("db", true, true, '/'));
+const jsonDirectory = path.join(process.cwd(), 'json');
+
+const db = new JsonDB(new Config(jsonDirectory + "/db.json", true, true, '/'));
 
 export default async function handler(
   req: NextApiRequest,
