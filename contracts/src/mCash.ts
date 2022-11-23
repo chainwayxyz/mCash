@@ -14,17 +14,10 @@ import {
   AccountUpdate,
   MerkleWitness,
   MerkleTree,
-  // fetchAccount
 } from 'snarkyjs';
 import { BaseMerkleWitness } from 'snarkyjs/dist/node/lib/merkle_tree';
 
 class CustomMerkleWitness extends MerkleWitness(256) {}
-
-// import {
-//   // OffChainStorage,
-//   // Update,
-//   MerkleWitness256,
-// } from 'experimental-zkapp-offchain-storage';
 
 export {
   deploy,
@@ -35,26 +28,30 @@ export {
   doProofs,
 };
 
-// await isReady;
 const doProofs = false;
 
 export class mCashZkApp extends SmartContract {
+  // Events to keep off-chain state synced
   events = {
     deposit: Field,
     withdraw: Field,
   };
 
+  // Root of the nullifier tree
   @state(Field) nullifierRoot = State<Field>();
+
+  // Root of the commitment tree
   @state(Field) commitmentRoot = State<Field>();
+
+  // Index of the last commitment
   @state(Field) lastCommitment = State<Field>();
-  public amount: UInt64 = new UInt64(UInt64.from(8e9));
-  @state(Field) fee = State<Field>();
 
   deploy(args: DeployArgs) {
     super.deploy(args);
     this.setPermissions({
       ...Permissions.default(),
-      // setting 'Permission' to 'none' in order to avoid Problems with signing transactions in the browser
+
+      // Allows both proof and non-proof transactions for testnet only!
       editState: Permissions.proofOrSignature(),
       send: Permissions.proofOrSignature(),
       editSequenceState: Permissions.proofOrSignature(),
@@ -71,6 +68,7 @@ export class mCashZkApp extends SmartContract {
   @method init(zkAppPrivateKey: PrivateKey) {
     super.init(zkAppPrivateKey);
 
+    // Initialize the trees
     const emptyTreeRoot = new MerkleTree(256).getRoot();
     this.nullifierRoot.set(emptyTreeRoot);
     this.commitmentRoot.set(emptyTreeRoot);
@@ -83,14 +81,17 @@ export class mCashZkApp extends SmartContract {
     commitmentWitness: CustomMerkleWitness,
     caller: PrivateKey
   ) {
+    // Get 1e9 mina from the caller
     let payerAccountUpdate = AccountUpdate.createSigned(caller);
     payerAccountUpdate.send({ to: this.address, amount: UInt64.from(1e9) });
 
     // commitment = hash(nullifier, secret)
     const commitment = Poseidon.hash([nullifier, secret]);
+
     // verify that the commitment is in right index
     const commitmentIndex = commitmentWitness.calculateIndex();
 
+    // verify on-chain commitment index is correct
     const lastCommitmentInContract = this.lastCommitment.get();
     this.lastCommitment.assertEquals(lastCommitmentInContract);
     lastCommitmentInContract.assertEquals(commitmentIndex);
@@ -102,10 +103,12 @@ export class mCashZkApp extends SmartContract {
       commitmentWitness.calculateRoot(Field(0))
     );
 
+    // update commitment tree and last commitment index
     const commitmentRootFromPath = commitmentWitness.calculateRoot(commitment);
     this.commitmentRoot.set(commitmentRootFromPath);
     this.lastCommitment.set(commitmentIndex.add(1));
 
+    // emit deposit event
     this.emitEvent('deposit', commitment);
   }
 
@@ -119,6 +122,7 @@ export class mCashZkApp extends SmartContract {
     // commitment = hash(nullifier, secret)
     const commitment = Poseidon.hash([nullifier, secret]);
 
+    // verify on-chain commitment root is correct
     const commitmentRootInContract = this.commitmentRoot.get();
     this.commitmentRoot.assertEquals(commitmentRootInContract);
     commitmentRootInContract.assertEquals(
@@ -136,19 +140,21 @@ export class mCashZkApp extends SmartContract {
     nullifierRootInContract.assertEquals(nullifierRootFromPath);
     nullifier.assertEquals(nullifierFromPath);
 
+    // update nullifier tree
     this.nullifierRoot.set(nullifierWitness.calculateRoot(Field(1)));
 
-    // Send mina
+    // Send mina to the caller
     this.send({
       to: caller.toPublicKey(),
       amount: UInt64.from(1e9),
     });
 
+    // emit withdraw event
     this.emitEvent('withdraw', nullifier);
   }
 }
 
-// helpers
+// ------- HELPER FUNCTIONS --------
 function createLocalBlockchain(): [PrivateKey, PrivateKey] {
   let Local = Mina.LocalBlockchain({
     proofsEnabled: doProofs,
@@ -167,7 +173,6 @@ async function deploy(
 ) {
   let tx = await Mina.transaction(account, () => {
     AccountUpdate.fundNewAccount(account);
-    // zkAppInstance.init();
     zkAppInstance.deploy({ zkappKey: zkAppPrivateKey });
   });
   await tx.prove();
@@ -188,12 +193,10 @@ async function deposit(
   commitmentWitness: BaseMerkleWitness,
   deployerAccount: PrivateKey,
   zkAppAddress: PublicKey
-  // _zkAppPrivateKey: PrivateKey
 ) {
   let tx = await Mina.transaction(deployerAccount, () => {
     let contract = new mCashZkApp(zkAppAddress);
     contract.deposit(nullifier, secret, commitmentWitness, deployerAccount);
-    // if (!doProofs) contract.sign(zkAppPrivateKey);
   });
   try {
     await tx.prove();
@@ -212,7 +215,6 @@ async function withdraw(
   nullifierWitness: BaseMerkleWitness,
   account: PrivateKey,
   zkAppAddress: PublicKey
-  // _zkAppPrivateKey: PrivateKey
 ) {
   let tx = await Mina.transaction(account, () => {
     let zkApp = new mCashZkApp(zkAppAddress);
@@ -223,7 +225,6 @@ async function withdraw(
       nullifierWitness,
       account
     );
-    // if (!doProofs) zkApp.sign(zkAppPrivateKey);
   });
   try {
     await tx.prove();

@@ -18,29 +18,24 @@ import {
   MerkleTree,
   MerkleWitness,
 } from 'snarkyjs';
-// import { MerkleWitness256 } from 'experimental-zkapp-offchain-storage';
 
 class MerkleWitness256 extends MerkleWitness(256) {}
-
-/*
- INCOMPLETE
- */
 
 describe('mCash', () => {
   let contract: mCashZkApp,
     deployerAccount: PrivateKey,
     payerAccount: PrivateKey,
     zkAppAddress: PublicKey,
-    zkAppPrivateKey: PrivateKey;
-  let nullifierTree: MerkleTree;
-  let commitmentTree: MerkleTree;
+    zkAppPrivateKey: PrivateKey,
+    nullifierTree: MerkleTree,
+    commitmentTree: MerkleTree;
 
   beforeEach(async () => {
     await isReady;
     nullifierTree = new MerkleTree(256);
     commitmentTree = new MerkleTree(256);
     [deployerAccount, payerAccount] = createLocalBlockchain();
-    // console.log('Deployer account', deployerAccount.toString());
+
     console.log('Payer account', payerAccount.toString());
 
     // ----------------------------------------------------
