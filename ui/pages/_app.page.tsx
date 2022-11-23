@@ -44,7 +44,6 @@ export default function App({ Component, pageProps }: AppProps) {
     console.log('done');
     
     await zkappWorkerClient.setActiveInstanceToBerkeley();
-    await zkappWorkerClient.setActiveInstanceToBerkeley();
     
     if (localStorage.privateKey == null) {
       localStorage.privateKey = PrivateKey.random().toBase58();
@@ -307,7 +306,7 @@ export default function App({ Component, pageProps }: AppProps) {
           <div>
             <h1>Deposit</h1>
             <button onClick={deposit}>Deposit</button>
-            {state.depositNullifier && state.depositSecret && <div style={{width: '90%'}}>
+            {state.depositNullifier && state.depositSecret && <div style={{width: '80%', wordBreak: 'break-all'}}>
               <h3>Your Nullifier</h3>
               <div>{state.depositNullifier.toString()}</div>
               <h3>Your Secret</h3>
@@ -344,6 +343,8 @@ export default function App({ Component, pageProps }: AppProps) {
         {state.root && <div style={{marginTop: 50}}>
           <h1>Current Root</h1>
           <div>{state.root.toString()}</div>
+          <h1>Your Public Key</h1>
+          <div>{state.publicKey!.toBase58()}</div>
         </div>}
       </div>
   }
